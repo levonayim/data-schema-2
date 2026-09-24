@@ -98,11 +98,14 @@ export default function EntityCard({ entity, onDragStart, onPortDown, onPortUp }
             (entity.values ?? []).map((v, i) => (
               <div
                 key={v + i}
-                className="flex items-center px-4"
+                className="flex items-center justify-between px-4"
                 style={{ height: ROW_H, borderTop: i === 0 ? "none" : "1px solid var(--border)" }}
               >
                 <span className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
                   {v}
+                </span>
+                <span className="text-[12px] font-mono" style={{ color: "var(--text-tertiary)" }}>
+                  string
                 </span>
               </div>
             ))}

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import { colorById } from "../lib/colors";
+import { computeDependentCounts } from "../lib/impact";
 
 type SortKey = "updated" | "name" | "terms";
 
@@ -13,11 +14,13 @@ export default function EntityListPanel() {
   const [sortOpen, setSortOpen] = useState(false);
 
   const sorted = useMemo(() => {
-    const list = [...entities];
+    const list = entities.filter((e) => (tab === "values" ? e.kind === "valueList" : e.kind === "termSet"));
     if (sortKey === "name") list.sort((a, b) => a.name.localeCompare(b.name));
     else if (sortKey === "terms") list.sort((a, b) => b.attributes.length - a.attributes.length);
     return list;
-  }, [entities, sortKey]);
+  }, [entities, sortKey, tab]);
+
+  const dependentCounts = useMemo(() => computeDependentCounts(entities), [entities]);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -79,6 +82,7 @@ export default function EntityListPanel() {
         {sorted.map((e) => {
           const color = colorById(e.color);
           const relCount = e.attributes.filter((a) => a.refEntityId).length;
+          const usedByCount = dependentCounts.get(e.id) ?? 0;
           const isSelected = selectedEntityId === e.id;
           return (
             <button
@@ -109,6 +113,14 @@ export default function EntityListPanel() {
                       {"  "}
                       <span style={{ color: "var(--accent-blue-fg)" }}>
                         {relCount} relationship{relCount !== 1 ? "s" : ""}
+                      </span>
+                    </>
+                  )}
+                  {usedByCount > 0 && (
+                    <>
+                      {"  "}
+                      <span title="Referenced by other terms elsewhere" style={{ color: "var(--text-secondary)" }}>
+                        used by {usedByCount}
                       </span>
                     </>
                   )}

@@ -1,6 +1,7 @@
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { colorById } from "../lib/colors";
+import { computeDependents } from "../lib/impact";
 import { DATA_TYPES, type DataType, type EntityNode } from "../types";
 import { parseCsvForImport } from "../lib/import";
 
@@ -24,6 +25,7 @@ export default function EntityRecordCard({ entity }: { entity: EntityNode }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const color = colorById(entity.color);
+  const dependents = useMemo(() => computeDependents(entities, entity.id), [entities, entity.id]);
   const filtered = entity.attributes.filter((a) => a.name.toLowerCase().includes(query.toLowerCase()));
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -61,6 +63,12 @@ export default function EntityRecordCard({ entity }: { entity: EntityNode }) {
         {entity.owner && (
           <p className="text-[11.5px] mt-1" style={{ color: "var(--text-tertiary)" }}>
             Owner: {entity.owner}
+          </p>
+        )}
+        {dependents.length > 0 && (
+          <p className="text-[11.5px] mt-1" style={{ color: "var(--text-tertiary)" }}>
+            Used by {dependents.length} term{dependents.length !== 1 ? "s" : ""} —{" "}
+            {Array.from(new Set(dependents.map((d) => d.entityName))).join(", ")}. Changing this may break those.
           </p>
         )}
         {entity.description && (

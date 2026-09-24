@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { colorById } from "../lib/colors";
+import { computeDependents } from "../lib/impact";
 import type { Attribute, EntityNode } from "../types";
 
 export default function TermDetailsDrawer() {
@@ -9,6 +10,8 @@ export default function TermDetailsDrawer() {
   const entities = useStore((s) => s.entities);
   const updateAttribute = useStore((s) => s.updateAttribute);
   const updateEntityMeta = useStore((s) => s.updateEntityMeta);
+  const focusEntity = useStore((s) => s.focusEntity);
+  const openTermDrawer = useStore((s) => s.openTermDrawer);
 
   const [tab, setTab] = useState<"terms" | "details">("terms");
   const [query, setQuery] = useState("");
@@ -35,6 +38,11 @@ export default function TermDetailsDrawer() {
   }, [termDrawer]);
 
   const entity = entities.find((e) => e.id === termDrawer?.entityId);
+
+  const dependents = useMemo(
+    () => (entity ? computeDependents(entities, entity.id) : []),
+    [entities, entity]
+  );
 
   if (!termDrawer || !entity) return null;
 
@@ -268,6 +276,35 @@ export default function TermDetailsDrawer() {
                   className="w-full rounded-lg border px-2.5 py-1.5 text-[12.5px] outline-none"
                   style={{ borderColor: "var(--border-strong)", background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
                 />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--text-tertiary)" }}>
+                  Used by {dependents.length > 0 && `(${dependents.length})`}
+                </label>
+                {dependents.length === 0 ? (
+                  <p className="text-[12px]" style={{ color: "var(--text-tertiary)" }}>
+                    Not referenced by any other terms yet — safe to change freely.
+                  </p>
+                ) : (
+                  <div className="space-y-1">
+                    {dependents.map((d) => (
+                      <button
+                        key={d.attrId}
+                        className="w-full flex items-center justify-between rounded-lg border px-2.5 py-1.5 text-[12.5px] text-left hover:opacity-80"
+                        style={{ borderColor: "var(--border)", background: "var(--bg-surface-2)" }}
+                        onClick={() => {
+                          focusEntity(d.entityId);
+                          openTermDrawer(d.entityId, d.attrId);
+                        }}
+                      >
+                        <span style={{ color: "var(--text-primary)" }}>
+                          {d.entityName}.{d.attrName}
+                        </span>
+                        <span style={{ color: "var(--text-tertiary)" }}>→</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               {entity.updatedBy && (
                 <p className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
