@@ -2,6 +2,7 @@ import { Fragment, useMemo, useRef, useState } from "react";
 import { useStore } from "../store";
 import { colorById } from "../lib/colors";
 import { computeDependents } from "../lib/impact";
+import { hasMapping, STATUS_STYLE, verificationStatus } from "../lib/physical";
 import { DATA_TYPES, type DataType, type EntityNode } from "../types";
 import { parseCsvForImport } from "../lib/import";
 
@@ -26,6 +27,9 @@ export default function EntityRecordCard({ entity }: { entity: EntityNode }) {
 
   const color = colorById(entity.color);
   const dependents = useMemo(() => computeDependents(entities, entity.id), [entities, entity.id]);
+  const mappedAttrs = entity.attributes.filter((a) => hasMapping(a.physicalMapping));
+  const verifiedMappedCount = mappedAttrs.filter((a) => verificationStatus(a.physicalMapping) === "verified").length;
+  const flaggedCount = entity.attributes.filter((a) => a.sourceReviewRequestedAt).length;
   const filtered = entity.attributes.filter((a) => a.name.toLowerCase().includes(query.toLowerCase()));
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -69,6 +73,17 @@ export default function EntityRecordCard({ entity }: { entity: EntityNode }) {
           <p className="text-[11.5px] mt-1" style={{ color: "var(--text-tertiary)" }}>
             Used by {dependents.length} term{dependents.length !== 1 ? "s" : ""} —{" "}
             {Array.from(new Set(dependents.map((d) => d.entityName))).join(", ")}. Changing this may break those.
+          </p>
+        )}
+        {mappedAttrs.length > 0 && (
+          <p className="text-[11.5px] mt-1" style={{ color: "var(--text-tertiary)" }}>
+            {verifiedMappedCount} of {mappedAttrs.length} mapped term{mappedAttrs.length !== 1 ? "s" : ""} verified
+            against source
+          </p>
+        )}
+        {flaggedCount > 0 && (
+          <p className="text-[11.5px] mt-1" style={{ color: "#c8811a" }}>
+            {flaggedCount} term{flaggedCount !== 1 ? "s" : ""} flagged for review
           </p>
         )}
         {entity.description && (
@@ -135,12 +150,13 @@ export default function EntityRecordCard({ entity }: { entity: EntityNode }) {
 
       <div className="rounded-2xl border overflow-hidden" style={{ background: "var(--bg-surface)", borderColor: "var(--border)" }}>
         <div className="overflow-x-auto">
-          <table className="w-full text-[13px] min-w-[640px]">
+          <table className="w-full text-[13px] min-w-[760px]">
             <thead>
               <tr style={{ color: "var(--text-tertiary)" }}>
                 <th className="w-8" />
                 <th className="text-left font-medium px-3 py-2.5">Business Terms</th>
                 <th className="text-left font-medium px-3 py-2.5">Data type</th>
+                <th className="text-left font-medium px-3 py-2.5">Source</th>
                 <th className="text-center font-medium px-3 py-2.5 w-20">Required</th>
                 <th className="text-center font-medium px-3 py-2.5 w-20">Multiple</th>
                 <th className="w-10" />
@@ -178,6 +194,31 @@ export default function EntityRecordCard({ entity }: { entity: EntityNode }) {
                       <td className="px-3 py-2" style={{ color: "var(--text-secondary)" }}>
                         {ref ? `${ref.name} (Complex type)` : a.dataType}
                       </td>
+                      <td className="px-3 py-2">
+                        {(() => {
+                          const status = verificationStatus(a.physicalMapping);
+                          const style = STATUS_STYLE[status];
+                          return (
+                            <span
+                              className="flex items-center gap-1.5 text-[12px]"
+                              style={{ color: "var(--text-tertiary)" }}
+                              title={status === "unmapped" ? style.label : `${style.label}${a.physicalMapping ? ` — ${a.physicalMapping.system}.${a.physicalMapping.table}.${a.physicalMapping.column}` : ""}`}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: style.dot }} />
+                              {a.physicalMapping ? `${a.physicalMapping.table}.${a.physicalMapping.column}` : "—"}
+                              {a.sourceReviewRequestedAt && (
+                                <span
+                                  className="text-[10px] font-semibold px-1 py-px rounded shrink-0"
+                                  style={{ background: "#f0a83a", color: "#fff" }}
+                                  title="Flagged for review"
+                                >
+                                  Flagged
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })()}
+                      </td>
                       <td className="px-3 py-2 text-center">
                         <input type="checkbox" checked={!!a.required} onChange={(e) => updateAttribute(entity.id, a.id, { required: e.target.checked })} />
                       </td>
@@ -190,7 +231,7 @@ export default function EntityRecordCard({ entity }: { entity: EntityNode }) {
                         </button>
                         {rowMenu === a.id && (
                           <div
-                            className="absolute right-2 top-full mt-1 rounded-lg border text-[12.5px] overflow-hidden z-10 w-32"
+                            className="absolute right-2 top-full mt-1 rounded-lg border text-[12.5px] overflow-hidden z-10 w-44"
                             style={{ background: "var(--bg-surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-pill)" }}
                           >
                             <button
@@ -202,6 +243,19 @@ export default function EntityRecordCard({ entity }: { entity: EntityNode }) {
                               }}
                             >
                               Duplicate
+                            </button>
+                            <button
+                              className="block w-full text-left px-3 py-2 hover:opacity-80 border-t"
+                              style={{ color: "var(--text-primary)", borderColor: "var(--border)" }}
+                              title="Not sure of the table/column? No need — this just asks the owner to check the source."
+                              onClick={() => {
+                                updateAttribute(entity.id, a.id, {
+                                  sourceReviewRequestedAt: a.sourceReviewRequestedAt ? undefined : Date.now(),
+                                });
+                                setRowMenu(null);
+                              }}
+                            >
+                              {a.sourceReviewRequestedAt ? "Clear review flag" : "Flag source for review"}
                             </button>
                             <button
                               className="block w-full text-left px-3 py-2 hover:opacity-80 border-t"
@@ -278,7 +332,7 @@ export default function EntityRecordCard({ entity }: { entity: EntityNode }) {
                       ))}
                     </select>
                   </td>
-                  <td colSpan={2} />
+                  <td colSpan={3} />
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-3">
                       <button className="text-[12px] font-semibold" style={{ color: "var(--accent-blue-fg)" }} onClick={commitAdd}>

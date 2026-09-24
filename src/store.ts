@@ -19,6 +19,20 @@ import type { ImportPreview } from "./lib/import";
 
 const nid = (prefix: string) => `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 
+/** Bump this whenever seed.ts changes in a way that should override a browser's persisted state. */
+const STORE_VERSION = 4;
+
+function partializeStore(s: AppState) {
+  return {
+    schemas: s.schemas,
+    activeSchemaId: s.activeSchemaId,
+    entities: s.entities,
+    theme: s.theme,
+    fileName: s.fileName,
+    recentSearches: s.recentSearches,
+  };
+}
+
 function buildAssistantReply(userText: string, entities: EntityNode[], isRegeneration = false): ChatMessage {
   const lower = userText.toLowerCase();
   if (/entit|schema|map|structure/.test(lower)) {
@@ -446,14 +460,12 @@ export const useStore = create<AppState>()(
     }),
     {
       name: "erd-mock-store",
-      partialize: (s) => ({
-        schemas: s.schemas,
-        activeSchemaId: s.activeSchemaId,
-        entities: s.entities,
-        theme: s.theme,
-        fileName: s.fileName,
-        recentSearches: s.recentSearches,
-      }),
+      version: STORE_VERSION,
+      // seed.ts is a moving target during development — when STORE_VERSION is bumped, discard
+      // whatever's in localStorage instead of merging it, so seed changes always show up on reload.
+      migrate: (persisted, version) =>
+        (version === STORE_VERSION ? persisted : undefined) as ReturnType<typeof partializeStore>,
+      partialize: partializeStore,
     }
   )
 );

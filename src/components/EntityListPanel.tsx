@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useStore } from "../store";
 import { colorById } from "../lib/colors";
 import { computeDependentCounts } from "../lib/impact";
+import { needsAttention } from "../lib/physical";
 
 type SortKey = "updated" | "name" | "terms";
 
@@ -83,6 +84,7 @@ export default function EntityListPanel() {
           const color = colorById(e.color);
           const relCount = e.attributes.filter((a) => a.refEntityId).length;
           const usedByCount = dependentCounts.get(e.id) ?? 0;
+          const needsVerificationCount = e.attributes.filter(needsAttention).length;
           const isSelected = selectedEntityId === e.id;
           return (
             <button
@@ -127,6 +129,18 @@ export default function EntityListPanel() {
                 </span>
                 <span style={{ color: "var(--text-tertiary)" }}>{e.version}</span>
               </div>
+              {needsVerificationCount > 0 && (
+                <div className="pl-4 mt-1.5">
+                  <span
+                    className="inline-flex items-center gap-1 text-[10.5px] font-medium px-2 py-0.5 rounded-full"
+                    style={{ background: "rgba(240, 168, 58, 0.15)", color: "#c8811a" }}
+                    title="Terms whose physical source has never been or is no longer recently verified, or were flagged for review"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#f0a83a" }} />
+                    {needsVerificationCount} need{needsVerificationCount === 1 ? "s" : ""} verification
+                  </span>
+                </div>
+              )}
             </button>
           );
         })}

@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { colorById } from "../lib/colors";
 import { computeDependents } from "../lib/impact";
-import type { Attribute, EntityNode } from "../types";
+import { formatRelativeDays, hasMapping, STATUS_STYLE, verificationStatus } from "../lib/physical";
+import type { Attribute, EntityNode, PhysicalMapping } from "../types";
 
 export default function TermDetailsDrawer() {
   const termDrawer = useStore((s) => s.termDrawer);
@@ -143,6 +144,8 @@ export default function TermDetailsDrawer() {
                               style={{ borderColor: "var(--border-strong)", background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
                             />
                           </div>
+
+                          <PhysicalMappingEditor entity={entity} attr={a} />
 
                           <AllowedValuesEditor
                             entity={entity}
@@ -332,6 +335,93 @@ export default function TermDetailsDrawer() {
         </div>
       </div>
     </>
+  );
+}
+
+function PhysicalMappingEditor({ entity, attr }: { entity: EntityNode; attr: Attribute }) {
+  const updateAttribute = useStore((s) => s.updateAttribute);
+  const mapping = attr.physicalMapping;
+  const status = verificationStatus(mapping);
+  const style = STATUS_STYLE[status];
+  const flagged = !!attr.sourceReviewRequestedAt;
+
+  const patchMapping = (patch: Partial<PhysicalMapping>) =>
+    updateAttribute(entity.id, attr.id, {
+      physicalMapping: { system: "", table: "", column: "", ...mapping, ...patch },
+    });
+
+  const markVerified = () =>
+    updateAttribute(entity.id, attr.id, {
+      physicalMapping: { system: "", table: "", column: "", ...mapping, lastVerifiedAt: Date.now() },
+      sourceReviewRequestedAt: undefined,
+    });
+
+  const toggleFlag = () =>
+    updateAttribute(entity.id, attr.id, { sourceReviewRequestedAt: flagged ? undefined : Date.now() });
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+        <p className="text-[11px] font-medium" style={{ color: "var(--text-tertiary)" }}>
+          Physical mapping
+        </p>
+        <div className="flex items-center gap-2">
+          {flagged && (
+            <span className="flex items-center gap-1 text-[11px] font-medium" style={{ color: "#c8811a" }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#f0a83a" }} />
+              Flagged {formatRelativeDays(attr.sourceReviewRequestedAt!)}
+            </span>
+          )}
+          {status !== "unmapped" && (
+            <span className="flex items-center gap-1 text-[11px] font-medium" style={{ color: style.text }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: style.dot }} />
+              {status === "verified" && mapping?.lastVerifiedAt
+                ? `Verified ${formatRelativeDays(mapping.lastVerifiedAt)}`
+                : status === "stale" && mapping?.lastVerifiedAt
+                  ? `Stale — verified ${formatRelativeDays(mapping.lastVerifiedAt)}`
+                  : style.label}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5 mb-1.5">
+        <input
+          value={mapping?.system ?? ""}
+          onChange={(e) => patchMapping({ system: e.target.value })}
+          placeholder="System"
+          className="w-full rounded-lg border px-2 py-1.5 text-[12px] outline-none"
+          style={{ borderColor: "var(--border-strong)", background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
+        />
+        <input
+          value={mapping?.table ?? ""}
+          onChange={(e) => patchMapping({ table: e.target.value })}
+          placeholder="Table"
+          className="w-full rounded-lg border px-2 py-1.5 text-[12px] outline-none"
+          style={{ borderColor: "var(--border-strong)", background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
+        />
+        <input
+          value={mapping?.column ?? ""}
+          onChange={(e) => patchMapping({ column: e.target.value })}
+          placeholder="Column"
+          className="w-full rounded-lg border px-2 py-1.5 text-[12px] outline-none"
+          style={{ borderColor: "var(--border-strong)", background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
+        />
+      </div>
+      <div className="flex items-center gap-3">
+        {hasMapping(mapping) && (
+          <button className="text-[11.5px] font-medium" style={{ color: "var(--accent-blue-fg)" }} onClick={markVerified}>
+            Mark verified against source
+          </button>
+        )}
+        <button
+          className="text-[11.5px] font-medium"
+          style={{ color: flagged ? "var(--text-tertiary)" : "#c8811a" }}
+          onClick={toggleFlag}
+        >
+          {flagged ? "Clear flag" : "Flag for review"}
+        </button>
+      </div>
+    </div>
   );
 }
 

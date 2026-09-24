@@ -26,6 +26,14 @@ export interface Sensitivity {
   business: boolean;
 }
 
+export interface PhysicalMapping {
+  system: string;
+  table: string;
+  column: string;
+  /** epoch ms when someone last confirmed this mapping still matches the source */
+  lastVerifiedAt?: number;
+}
+
 export interface Attribute {
   id: string;
   name: string;
@@ -43,6 +51,10 @@ export interface Attribute {
   definition?: string;
   /** allowed values / business rule for this term, when it isn't better modeled as a refEntityId to a valueList */
   allowedValues?: string[];
+  /** the physical source (system/table/column) this term is actually stored in, and when that was last confirmed */
+  physicalMapping?: PhysicalMapping;
+  /** epoch ms when someone (often a consumer, not the term's owner) flagged this term's source as needing review */
+  sourceReviewRequestedAt?: number;
 }
 
 export type EntityStatus = "published" | "draft";
