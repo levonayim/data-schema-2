@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStore } from "../store";
 import { colorById } from "../lib/colors";
+import type { Attribute, EntityNode } from "../types";
 
 export default function TermDetailsDrawer() {
   const termDrawer = useStore((s) => s.termDrawer);
@@ -13,6 +14,7 @@ export default function TermDetailsDrawer() {
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState("");
+  const [valueDraft, setValueDraft] = useState("");
 
   useEffect(() => {
     if (!termDrawer) return;
@@ -101,7 +103,10 @@ export default function TermDetailsDrawer() {
                     <div key={a.id} className="rounded-lg border overflow-hidden" style={{ borderColor: "var(--border)" }}>
                       <button
                         className="w-full flex items-center justify-between px-2.5 py-2 text-left"
-                        onClick={() => setExpandedId(isOpen ? null : a.id)}
+                        onClick={() => {
+                          setExpandedId(isOpen ? null : a.id);
+                          setValueDraft("");
+                        }}
                       >
                         <span className="text-[13px]" style={{ color: "var(--text-primary)" }}>
                           {a.name}
@@ -117,6 +122,29 @@ export default function TermDetailsDrawer() {
                       </button>
                       {isOpen && (
                         <div className="px-3 pb-3 pt-1 space-y-3" style={{ borderTop: "1px solid var(--border)" }}>
+                          <div>
+                            <p className="text-[11px] font-medium mb-1.5" style={{ color: "var(--text-tertiary)" }}>
+                              Definition
+                            </p>
+                            <textarea
+                              value={a.definition ?? ""}
+                              onChange={(e) => updateAttribute(entity.id, a.id, { definition: e.target.value })}
+                              placeholder="What this term means in business terms — not just how it's stored"
+                              rows={2}
+                              className="w-full rounded-lg border px-2.5 py-1.5 text-[12.5px] outline-none resize-none"
+                              style={{ borderColor: "var(--border-strong)", background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
+                            />
+                          </div>
+
+                          <AllowedValuesEditor
+                            entity={entity}
+                            attr={a}
+                            color={color}
+                            entities={entities}
+                            valueDraft={valueDraft}
+                            setValueDraft={setValueDraft}
+                          />
+
                           <div>
                             <p className="text-[11px] font-medium mb-1.5" style={{ color: "var(--text-tertiary)" }}>
                               Constraints
@@ -229,6 +257,18 @@ export default function TermDetailsDrawer() {
                   style={{ borderColor: "var(--border-strong)", background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
                 />
               </div>
+              <div>
+                <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--text-tertiary)" }}>
+                  Owner
+                </label>
+                <input
+                  value={entity.owner ?? ""}
+                  onChange={(e) => updateEntityMeta(entity.id, { owner: e.target.value })}
+                  placeholder="Who owns/decides this entity's terms"
+                  className="w-full rounded-lg border px-2.5 py-1.5 text-[12.5px] outline-none"
+                  style={{ borderColor: "var(--border-strong)", background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
+                />
+              </div>
               {entity.updatedBy && (
                 <p className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
                   Created by {entity.createdBy} · Last modified by {entity.updatedBy}
@@ -255,6 +295,205 @@ export default function TermDetailsDrawer() {
         </div>
       </div>
     </>
+  );
+}
+
+function AllowedValuesEditor({
+  entity,
+  attr,
+  color,
+  entities,
+  valueDraft,
+  setValueDraft,
+}: {
+  entity: EntityNode;
+  attr: Attribute;
+  color: ReturnType<typeof colorById>;
+  entities: EntityNode[];
+  valueDraft: string;
+  setValueDraft: (v: string) => void;
+}) {
+  const updateAttribute = useStore((s) => s.updateAttribute);
+  const connectAttribute = useStore((s) => s.connectAttribute);
+  const disconnectAttribute = useStore((s) => s.disconnectAttribute);
+  const addEntity = useStore((s) => s.addEntity);
+
+  const [pickerQuery, setPickerQuery] = useState("");
+  const [pickerFocused, setPickerFocused] = useState(false);
+
+  const linked = attr.refEntityId ? entities.find((e) => e.id === attr.refEntityId) : null;
+
+  const allUsedValues = useMemo(() => {
+    const set = new Set<string>();
+    entities.forEach((e) => {
+      e.attributes.forEach((a) => (a.allowedValues ?? []).forEach((v) => set.add(v)));
+      if (e.kind === "valueList") (e.values ?? []).forEach((v) => set.add(v));
+    });
+    return Array.from(set).sort();
+  }, [entities]);
+
+  if (linked) {
+    const linkedColor = colorById(linked.color);
+    return (
+      <div>
+        <p className="text-[11px] font-medium mb-1.5" style={{ color: "var(--text-tertiary)" }}>
+          Allowed values
+        </p>
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className="text-[11px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1.5"
+            style={{ background: linkedColor.badgeBg, color: linkedColor.badgeText }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: linkedColor.dot }} />
+            Linked to {linked.name}
+          </span>
+          <button
+            className="text-[11.5px] font-medium"
+            style={{ color: "var(--text-tertiary)" }}
+            onClick={() => disconnectAttribute(entity.id, attr.id)}
+          >
+            Unlink
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const suggestions = allUsedValues
+    .filter((v) => !(attr.allowedValues ?? []).includes(v) && v.toLowerCase().includes(valueDraft.trim().toLowerCase()))
+    .slice(0, 8);
+
+  const valueLists = entities.filter((e) => e.kind === "valueList");
+  const filteredLists = valueLists
+    .filter((e) => e.name.toLowerCase().includes(pickerQuery.trim().toLowerCase()))
+    .slice(0, 8);
+
+  const commitValue = (v: string) => {
+    const trimmed = v.trim();
+    if (!trimmed || (attr.allowedValues ?? []).includes(trimmed)) return;
+    updateAttribute(entity.id, attr.id, { allowedValues: [...(attr.allowedValues ?? []), trimmed] });
+    setValueDraft("");
+  };
+
+  const promoteToValueList = () => {
+    const listName = `${entity.name} ${attr.name} values`;
+    const newId = addEntity(listName, "valueList", [], attr.allowedValues ?? []);
+    connectAttribute(entity.id, attr.id, newId);
+    updateAttribute(entity.id, attr.id, { allowedValues: [] });
+  };
+
+  return (
+    <div>
+      <p className="text-[11px] font-medium mb-1.5" style={{ color: "var(--text-tertiary)" }}>
+        Allowed values
+      </p>
+      <div className="flex flex-wrap gap-1.5 mb-1.5">
+        {(attr.allowedValues ?? []).map((v) => (
+          <span
+            key={v}
+            className="text-[11px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1"
+            style={{ background: color.badgeBg, color: color.badgeText }}
+          >
+            {v}
+            <button
+              onClick={() =>
+                updateAttribute(entity.id, attr.id, { allowedValues: (attr.allowedValues ?? []).filter((x) => x !== v) })
+              }
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+
+      <div className="relative">
+        <input
+          value={valueDraft}
+          onChange={(e) => setValueDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitValue(valueDraft);
+          }}
+          placeholder="Add an allowed value and press Enter"
+          className="w-full rounded-lg border px-2.5 py-1.5 text-[12.5px] outline-none"
+          style={{ borderColor: "var(--border-strong)", background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
+        />
+        {valueDraft.trim() && suggestions.length > 0 && (
+          <div
+            className="absolute left-0 right-0 top-full mt-1 rounded-lg border overflow-hidden z-10"
+            style={{ background: "var(--bg-surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-pill)" }}
+          >
+            {suggestions.map((v) => (
+              <button
+                key={v}
+                className="w-full text-left px-2.5 py-1.5 text-[12.5px]"
+                style={{ color: "var(--text-primary)" }}
+                onMouseDown={() => commitValue(v)}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {(attr.allowedValues?.length ?? 0) >= 2 && (
+        <button
+          className="mt-1.5 text-[11.5px] font-medium"
+          style={{ color: "var(--accent-blue-fg)" }}
+          onClick={promoteToValueList}
+        >
+          Save as reusable value list
+        </button>
+      )}
+
+      <p className="text-[10.5px] font-medium mt-2.5 mb-1" style={{ color: "var(--text-tertiary)" }}>
+        or link an existing value list
+      </p>
+      <div className="relative">
+        <input
+          value={pickerQuery}
+          onChange={(e) => setPickerQuery(e.target.value)}
+          onFocus={() => setPickerFocused(true)}
+          onBlur={() => setPickerFocused(false)}
+          placeholder="Search value lists"
+          className="w-full rounded-lg border px-2.5 py-1.5 text-[12.5px] outline-none"
+          style={{ borderColor: "var(--border-strong)", background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
+        />
+        {pickerFocused && (
+          <div
+            className="absolute left-0 right-0 top-full mt-1 rounded-lg border overflow-hidden z-10"
+            style={{ background: "var(--bg-surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-pill)" }}
+          >
+            {filteredLists.length === 0 ? (
+              <p className="px-2.5 py-1.5 text-[12px]" style={{ color: "var(--text-tertiary)" }}>
+                No value lists found
+              </p>
+            ) : (
+              filteredLists.map((e) => {
+                const c = colorById(e.color);
+                return (
+                  <button
+                    key={e.id}
+                    className="w-full flex items-center gap-1.5 text-left px-2.5 py-1.5 text-[12.5px]"
+                    style={{ color: "var(--text-primary)" }}
+                    onMouseDown={() => {
+                      connectAttribute(entity.id, attr.id, e.id);
+                      updateAttribute(entity.id, attr.id, { allowedValues: [] });
+                    }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: c.dot }} />
+                    <span className="flex-1 truncate">{e.name}</span>
+                    <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                      {e.values?.length ?? 0} values
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

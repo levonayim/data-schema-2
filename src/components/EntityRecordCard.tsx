@@ -58,6 +58,11 @@ export default function EntityRecordCard({ entity }: { entity: EntityNode }) {
             Created by {entity.createdBy} · Last modified by {entity.updatedBy}
           </p>
         )}
+        {entity.owner && (
+          <p className="text-[11.5px] mt-1" style={{ color: "var(--text-tertiary)" }}>
+            Owner: {entity.owner}
+          </p>
+        )}
         {entity.description && (
           <p className="text-[13px] mt-2.5 max-w-[640px]" style={{ color: "var(--text-secondary)" }}>
             {entity.description}

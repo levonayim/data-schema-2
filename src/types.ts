@@ -39,6 +39,10 @@ export interface Attribute {
   multiple?: boolean;
   stateful?: boolean;
   sensitivity?: Sensitivity;
+  /** what this term means in business terms, not just how it's stored */
+  definition?: string;
+  /** allowed values / business rule for this term, when it isn't better modeled as a refEntityId to a valueList */
+  allowedValues?: string[];
 }
 
 export type EntityStatus = "published" | "draft";
@@ -59,6 +63,8 @@ export interface EntityNode {
   values?: string[];
   description?: string;
   tags?: string[];
+  /** person or role who owns/decides this entity's terms */
+  owner?: string;
   createdBy?: string;
   updatedBy?: string;
   updatedAt?: number;

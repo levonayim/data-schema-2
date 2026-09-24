@@ -26,6 +26,7 @@ const E = {
   collateral: id("ent"),
   modelCategory: id("ent"),
   prefixList: id("ent"),
+  applicationStatusList: id("ent"),
 };
 
 export const SEED_ENTITIES: EntityNode[] = [
@@ -42,13 +43,16 @@ export const SEED_ENTITIES: EntityNode[] = [
     description:
       "A business term set for managing customer and transaction risk scores based on account history, flagged activities, and geographic risks.",
     tags: ["Fraud", "Payments", "Credit Cards"],
+    owner: "Originations Product",
     createdBy: "Levona Yim",
     updatedBy: "Levona Yim",
     updatedAt: Date.now() - 33 * 60 * 1000,
     attributes: [
       attr("applicationID", "string", null, { primaryKey: true, required: true }),
       attr("submissionDate", "datetime", null, { required: true }),
-      attr("status", "string"),
+      attr("status", null, E.applicationStatusList, {
+        definition: "Where the application currently sits in the origination workflow, from intake through booked or declined.",
+      }),
       attr("applicant", null, E.applicant, { foreignKey: true }),
       attr("isJointApplication", "boolean"),
       attr("contact", null, E.contact, { foreignKey: true }),
@@ -131,14 +135,21 @@ export const SEED_ENTITIES: EntityNode[] = [
     x: 130,
     y: 780,
     collapsed: false,
+    owner: "Credit Risk",
     attributes: [
       attr("ssn", "string", null, { primaryKey: true, required: true, sensitivity: { personal: true, business: false } }),
       attr("dob", "date", null, { sensitivity: { personal: true, business: false } }),
       attr("income", "decimal"),
       attr("channel", "string"),
-      attr("empStatus", "string"),
+      attr("empStatus", "string", null, {
+        definition: "The applicant's employment situation at the time they applied, used to assess ability to repay.",
+        allowedValues: ["employed", "self_employed", "unemployed", "retired", "student"],
+      }),
       attr("yearsEmployed", "integer"),
-      attr("citizenStatus", "string"),
+      attr("citizenStatus", "string", null, {
+        definition: "The applicant's legal residency/citizenship category, used for compliance eligibility checks.",
+        allowedValues: ["us_citizen", "permanent_resident", "visa_holder", "non_resident"],
+      }),
       attr("contact", null, E.contact, { foreignKey: true }),
     ],
   },
@@ -205,6 +216,19 @@ export const SEED_ENTITIES: EntityNode[] = [
     y: 260,
     collapsed: false,
     values: ["Mr", "Mrs", "Ms", "Dr", "Prof"],
+    attributes: [],
+  },
+  {
+    id: E.applicationStatusList,
+    name: "applicationStatus",
+    kind: "valueList",
+    color: "blue",
+    status: "published",
+    version: "v1.0.0",
+    x: 760,
+    y: 620,
+    collapsed: false,
+    values: ["submitted", "in_review", "approved", "declined", "booked", "withdrawn"],
     attributes: [],
   },
   {

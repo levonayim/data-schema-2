@@ -23,7 +23,6 @@ export default function EntityCard({ entity, onDragStart, onPortDown, onPortUp }
   const disconnectAttribute = useStore((s) => s.disconnectAttribute);
   const removeAttribute = useStore((s) => s.removeAttribute);
   const openTermDrawer = useStore((s) => s.openTermDrawer);
-  const openDetailEntity = useStore((s) => s.openDetailEntity);
   const entities = useStore((s) => s.entities);
   const [openBadge, setOpenBadge] = useState<string | null>(null);
 
@@ -70,10 +69,10 @@ export default function EntityCard({ entity, onDragStart, onPortDown, onPortUp }
           <span
             className="font-semibold text-[14px] truncate hover:underline"
             style={{ color: "var(--text-primary)" }}
-            title="View entity details"
+            title="Edit entity details"
             onClick={(e) => {
               e.stopPropagation();
-              openDetailEntity(entity.id);
+              openTermDrawer(entity.id);
             }}
           >
             {entity.name}
