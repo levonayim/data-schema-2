@@ -34,6 +34,12 @@ export interface PhysicalMapping {
   lastVerifiedAt?: number;
 }
 
+/** points at the entity, possibly in another schema, that holds the canonical/authoritative definition of this term */
+export interface CanonicalRef {
+  schemaId: string;
+  entityId: string;
+}
+
 export interface Attribute {
   id: string;
   name: string;
@@ -77,6 +83,8 @@ export interface EntityNode {
   tags?: string[];
   /** person or role who owns/decides this entity's terms */
   owner?: string;
+  /** if set, this entity restates a term whose canonical definition lives elsewhere (often another schema) */
+  canonicalTermRef?: CanonicalRef;
   createdBy?: string;
   updatedBy?: string;
   updatedAt?: number;

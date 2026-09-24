@@ -3,6 +3,7 @@ import { useStore } from "../store";
 import { colorById } from "../lib/colors";
 import { computeDependents } from "../lib/impact";
 import { hasMapping, STATUS_STYLE, verificationStatus } from "../lib/physical";
+import { computeRestatements, resolveSchemaEntity } from "../lib/glossary";
 import { DATA_TYPES, type DataType, type EntityNode } from "../types";
 import { parseCsvForImport } from "../lib/import";
 
@@ -10,6 +11,8 @@ const PAGE_SIZE = 10;
 
 export default function EntityRecordCard({ entity }: { entity: EntityNode }) {
   const entities = useStore((s) => s.entities);
+  const schemas = useStore((s) => s.schemas);
+  const activeSchemaId = useStore((s) => s.activeSchemaId);
   const addAttribute = useStore((s) => s.addAttribute);
   const removeAttribute = useStore((s) => s.removeAttribute);
   const duplicateAttribute = useStore((s) => s.duplicateAttribute);
@@ -30,6 +33,13 @@ export default function EntityRecordCard({ entity }: { entity: EntityNode }) {
   const mappedAttrs = entity.attributes.filter((a) => hasMapping(a.physicalMapping));
   const verifiedMappedCount = mappedAttrs.filter((a) => verificationStatus(a.physicalMapping) === "verified").length;
   const flaggedCount = entity.attributes.filter((a) => a.sourceReviewRequestedAt).length;
+  const canonical = entity.canonicalTermRef
+    ? resolveSchemaEntity(schemas, activeSchemaId, entities, entity.canonicalTermRef.schemaId, entity.canonicalTermRef.entityId)
+    : null;
+  const restatements = useMemo(
+    () => computeRestatements(schemas, activeSchemaId, entities, activeSchemaId, entity.id),
+    [schemas, activeSchemaId, entities, entity.id]
+  );
   const filtered = entity.attributes.filter((a) => a.name.toLowerCase().includes(query.toLowerCase()));
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
@@ -73,6 +83,17 @@ export default function EntityRecordCard({ entity }: { entity: EntityNode }) {
           <p className="text-[11.5px] mt-1" style={{ color: "var(--text-tertiary)" }}>
             Used by {dependents.length} term{dependents.length !== 1 ? "s" : ""} —{" "}
             {Array.from(new Set(dependents.map((d) => d.entityName))).join(", ")}. Changing this may break those.
+          </p>
+        )}
+        {canonical && (
+          <p className="text-[11.5px] mt-1" style={{ color: "var(--text-tertiary)" }}>
+            Reference schema: {canonical.schemaName}
+          </p>
+        )}
+        {restatements.length > 0 && (
+          <p className="text-[11.5px] mt-1" style={{ color: "var(--text-tertiary)" }}>
+            Canonical source for {restatements.length} term{restatements.length !== 1 ? "s" : ""} in other schemas —{" "}
+            {Array.from(new Set(restatements.map((r) => r.schemaName))).join(", ")}.
           </p>
         )}
         {mappedAttrs.length > 0 && (

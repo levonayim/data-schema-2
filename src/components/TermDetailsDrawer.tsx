@@ -3,16 +3,20 @@ import { useStore } from "../store";
 import { colorById } from "../lib/colors";
 import { computeDependents } from "../lib/impact";
 import { formatRelativeDays, hasMapping, STATUS_STYLE, verificationStatus } from "../lib/physical";
-import type { Attribute, EntityNode, PhysicalMapping } from "../types";
+import { allSchemaEntities, computeRestatements, resolveSchemaEntity, type SchemaEntityRef } from "../lib/glossary";
+import type { Attribute, EntityNode, PhysicalMapping, SchemaFile } from "../types";
 
 export default function TermDetailsDrawer() {
   const termDrawer = useStore((s) => s.termDrawer);
   const closeTermDrawer = useStore((s) => s.closeTermDrawer);
   const entities = useStore((s) => s.entities);
+  const schemas = useStore((s) => s.schemas);
+  const activeSchemaId = useStore((s) => s.activeSchemaId);
   const updateAttribute = useStore((s) => s.updateAttribute);
   const updateEntityMeta = useStore((s) => s.updateEntityMeta);
   const focusEntity = useStore((s) => s.focusEntity);
   const openTermDrawer = useStore((s) => s.openTermDrawer);
+  const openSchema = useStore((s) => s.openSchema);
 
   const [tab, setTab] = useState<"terms" | "details">("terms");
   const [query, setQuery] = useState("");
@@ -45,10 +49,24 @@ export default function TermDetailsDrawer() {
     [entities, entity]
   );
 
+  const restatements = useMemo(
+    () => (entity ? computeRestatements(schemas, activeSchemaId, entities, activeSchemaId, entity.id) : []),
+    [schemas, activeSchemaId, entities, entity]
+  );
+
+  const canonical = entity?.canonicalTermRef
+    ? resolveSchemaEntity(schemas, activeSchemaId, entities, entity.canonicalTermRef.schemaId, entity.canonicalTermRef.entityId)
+    : null;
+
   if (!termDrawer || !entity) return null;
 
   const color = colorById(entity.color);
   const filtered = entity.attributes.filter((a) => a.name.toLowerCase().includes(query.toLowerCase()));
+
+  const jumpToSchemaEntity = (schemaId: string, entityId: string) => {
+    if (schemaId !== activeSchemaId) openSchema(schemaId);
+    openTermDrawer(entityId);
+  };
 
   const apply = (publish: boolean) => {
     if (publish) updateEntityMeta(entity.id, { status: "published" });
@@ -67,7 +85,7 @@ export default function TermDetailsDrawer() {
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color.dot }} />
             <h2 className="text-[14px] font-semibold truncate" style={{ color: "var(--text-primary)" }}>
-              {entity.name} Details
+              {entity.name}
             </h2>
           </div>
           <button onClick={closeTermDrawer} style={{ color: "var(--text-tertiary)" }}>
@@ -309,6 +327,29 @@ export default function TermDetailsDrawer() {
                   </div>
                 )}
               </div>
+              <CanonicalLinkEditor entity={entity} schemas={schemas} activeSchemaId={activeSchemaId} entities={entities} canonical={canonical} />
+              {restatements.length > 0 && (
+                <div>
+                  <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--text-tertiary)" }}>
+                    Restated in other schemas ({restatements.length})
+                  </label>
+                  <div className="space-y-1">
+                    {restatements.map((r) => (
+                      <button
+                        key={r.schemaId + r.entityId}
+                        className="w-full flex items-center justify-between rounded-lg border px-2.5 py-1.5 text-[12.5px] text-left hover:opacity-80"
+                        style={{ borderColor: "var(--border)", background: "var(--bg-surface-2)" }}
+                        onClick={() => jumpToSchemaEntity(r.schemaId, r.entityId)}
+                      >
+                        <span style={{ color: "var(--text-primary)" }}>
+                          {r.entityName} <span style={{ color: "var(--text-tertiary)" }}>· {r.schemaName}</span>
+                        </span>
+                        <span style={{ color: "var(--text-tertiary)" }}>→</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {entity.updatedBy && (
                 <p className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
                   Created by {entity.createdBy} · Last modified by {entity.updatedBy}
@@ -335,6 +376,123 @@ export default function TermDetailsDrawer() {
         </div>
       </div>
     </>
+  );
+}
+
+function CanonicalLinkEditor({
+  entity,
+  schemas,
+  activeSchemaId,
+  entities,
+  canonical,
+}: {
+  entity: EntityNode;
+  schemas: SchemaFile[];
+  activeSchemaId: string;
+  entities: EntityNode[];
+  canonical: SchemaEntityRef | null;
+}) {
+  const updateEntityMeta = useStore((s) => s.updateEntityMeta);
+  const openSchema = useStore((s) => s.openSchema);
+  const openTermDrawer = useStore((s) => s.openTermDrawer);
+  const [query, setQuery] = useState("");
+  const [focused, setFocused] = useState(false);
+
+  const candidates = allSchemaEntities(schemas, activeSchemaId, entities)
+    .filter((r) => !(r.schemaId === activeSchemaId && r.entityId === entity.id))
+    .filter((r) => r.entityName.toLowerCase().includes(query.trim().toLowerCase()))
+    .slice(0, 8);
+
+  if (canonical) {
+    const c = colorById(canonical.color);
+    return (
+      <div>
+        <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--text-tertiary)" }}>
+          Reference Schema
+        </label>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <span
+            className="text-[11px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1.5"
+            style={{ background: c.badgeBg, color: c.badgeText }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.dot }} />
+            {canonical.schemaName}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              className="text-[11.5px] font-medium"
+              style={{ color: "var(--accent-blue-fg)" }}
+              onClick={() => {
+                openSchema(canonical.schemaId);
+                openTermDrawer(canonical.entityId);
+              }}
+            >
+              Go to source
+            </button>
+            <button
+              className="text-[11.5px] font-medium"
+              style={{ color: "var(--text-tertiary)" }}
+              onClick={() => updateEntityMeta(entity.id, { canonicalTermRef: undefined })}
+            >
+              Unlink
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--text-tertiary)" }}>
+        Reference Schema
+      </label>
+      <p className="text-[11px] mb-1.5" style={{ color: "var(--text-tertiary)" }}>
+        If this term restates a definition another schema already owns, link it so everyone points at the same
+        source.
+      </p>
+      <div className="relative">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          placeholder="Search terms across all schemas"
+          className="w-full rounded-lg border px-2.5 py-1.5 text-[12.5px] outline-none"
+          style={{ borderColor: "var(--border-strong)", background: "var(--bg-surface-2)", color: "var(--text-primary)" }}
+        />
+        {focused && (
+          <div
+            className="absolute left-0 right-0 top-full mt-1 rounded-lg border overflow-hidden z-10"
+            style={{ background: "var(--bg-surface)", borderColor: "var(--border)", boxShadow: "var(--shadow-pill)" }}
+          >
+            {candidates.length === 0 ? (
+              <p className="px-2.5 py-1.5 text-[12px]" style={{ color: "var(--text-tertiary)" }}>
+                No matching terms found
+              </p>
+            ) : (
+              candidates.map((c) => {
+                const cc = colorById(c.color);
+                return (
+                  <button
+                    key={c.schemaId + c.entityId}
+                    className="w-full flex items-center gap-1.5 text-left px-2.5 py-1.5 text-[12.5px]"
+                    style={{ color: "var(--text-primary)" }}
+                    onMouseDown={() => updateEntityMeta(entity.id, { canonicalTermRef: { schemaId: c.schemaId, entityId: c.entityId } })}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: cc.dot }} />
+                    <span className="flex-1 truncate">{c.entityName}</span>
+                    <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                      {c.schemaName}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -20,7 +20,7 @@ import type { ImportPreview } from "./lib/import";
 const nid = (prefix: string) => `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 
 /** Bump this whenever seed.ts changes in a way that should override a browser's persisted state. */
-const STORE_VERSION = 4;
+const STORE_VERSION = 5;
 
 function partializeStore(s: AppState) {
   return {
@@ -151,7 +151,7 @@ export const useStore = create<AppState>()(
     (set, get) => ({
       schemas: [
         { id: ORIGINATIONS_SCHEMA_ID, name: "Originations Term Sets", version: "v1.30.1", status: "draft", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), entities: SEED_ENTITIES },
-        ...MOCK_SCHEMAS.map((s) => ({ ...s, entities: [] as EntityNode[] })),
+        ...MOCK_SCHEMAS.map((s) => ({ ...s, entities: s.entities ?? [] })),
       ],
       activeSchemaId: ORIGINATIONS_SCHEMA_ID,
 

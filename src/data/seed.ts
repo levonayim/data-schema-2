@@ -1,4 +1,5 @@
 import type { Attribute, EntityNode } from "../types";
+import { LEDGER_CUSTOMER_ENTITY_ID, LEDGER_SCHEMA_ID } from "./mockSchemas";
 
 let uid = 0;
 const id = (prefix: string) => `${prefix}_${(uid++).toString(36)}`;
@@ -162,6 +163,7 @@ export const SEED_ENTITIES: EntityNode[] = [
     collapsed: false,
     description: "The individual applying for credit — identity, income, and employment details used to assess risk.",
     owner: "Credit Risk",
+    canonicalTermRef: { schemaId: LEDGER_SCHEMA_ID, entityId: LEDGER_CUSTOMER_ENTITY_ID },
     createdBy: "Levona Yim",
     updatedBy: "Levona Yim",
     updatedAt: Date.now() - 45 * 60 * 1000,
