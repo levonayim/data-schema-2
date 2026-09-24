@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Consolas, monospace;
+}
+
+:root {
+  --bg-canvas: #f4f4f5;
+  --bg-dot: #d6d6da;
+  --bg-surface: #ffffff;
+  --bg-surface-2: #fafafa;
+  --bg-hover: #f2f2f4;
+  --bg-pill: #f4f4f5;
+  --border: #e6e6e9;
+  --border-strong: #dcdce0;
+  --text-primary: #17171a;
+  --text-secondary: #6b6b74;
+  --text-tertiary: #a3a3ab;
+  --shadow-card: 0 1px 2px rgba(20, 20, 25, 0.04), 0 8px 24px -8px rgba(20, 20, 25, 0.12);
+  --shadow-pill: 0 2px 8px rgba(20, 20, 25, 0.08), 0 1px 2px rgba(20, 20, 25, 0.06);
+  --accent-blue: #4f7cff;
+  --accent-blue-fg: #1d4ed8;
+  --accent-blue-soft: rgba(79, 124, 255, 0.14);
+  --line-default: #c7c7cf;
+  --line-active: #6b8cff;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg-canvas: #17181f;
+  --bg-dot: #2a2b35;
+  --bg-surface: #1d1e26;
+  --bg-surface-2: #21222b;
+  --bg-hover: #262732;
+  --bg-pill: #1f2029;
+  --border: #2c2d38;
+  --border-strong: #34353f;
+  --text-primary: #f2f2f4;
+  --text-secondary: #9a9aa5;
+  --text-tertiary: #6a6a75;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px -8px rgba(0, 0, 0, 0.55);
+  --shadow-pill: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --accent-blue: #5b8dff;
+  --accent-blue-fg: #8fb0ff;
+  --accent-blue-soft: rgba(91, 141, 255, 0.18);
+  --line-default: #494a56;
+  --line-active: #6f8fff;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+button {
+  font-family: inherit;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
